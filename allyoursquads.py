@@ -24,7 +24,6 @@ class Team:
 
     def target(self, bot, game):
         if game['turn'] != 0 and game['turn'] in self.targets:
-            print "USE CACHED VALUED"
             return self.targets.get(game['turn'], rg.CENTER_POINT)
 
         min_dist = 1000
@@ -76,15 +75,15 @@ class Robot:
         """
         if not self.team is None:
             target = self.team.target(self, game)
-            if rg.dist(self.location, target) == 1:
+            if rg.wdist(self.location, target) == 1:
                 return ['attack', target]
-            elif rg.dist(self.location, target) == 2:
+            elif rg.wdist(self.location, target) == 2 and (self.location[0] == target[0] or self.location[1] == target[1]):
                 # make blind attack
-                gx = self.location[0] + (self.location[0] - target[0])
-                gy = self.location[1] + (self.location[1] - target[1])
+                gx = self.location[0] + (self.location[0] - target[0]) / 2
+                gy = self.location[1] + (self.location[1] - target[1]) / 2
                 return ['attack', (gx, gy)]
             else:
-                return ['move', target]
+                return ['move', rg.toward(self.location, target)]
         print "Fatal: Robot is not in team."
 
     def _get_closest_team(self):

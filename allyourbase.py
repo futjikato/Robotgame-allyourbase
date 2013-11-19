@@ -9,8 +9,9 @@ class Robot:
     def act(self, game):
         # check if we need to back up a little to save robot
         if self.hp < self.backupThreshold and len(self.history) > 0:
-            print "BACKUP"
-            return ['move', self.history.pop()]
+            back_location = rg.toward(self.location, self.history.pop())
+            if back_location != self.location:
+                return ['move', back_location]
 
         # find closest enemy robot
         minDist = 1000
@@ -21,13 +22,6 @@ class Robot:
                 if checkDist < minDist:
                     minDist = checkDist
                     target = loc
-
-        # if mindist is 2 try to guess attack enemy position
-        if minDist == 2:
-            gx = self.location[0] + self.location[0] - target[0]
-            gy = self.location[0] + self.location[1] - target[1]
-
-            return ['attack', (gx, gy)]
 
         # HOIST THE FLAG! ARM THE CANONS!
         if minDist == 1:
