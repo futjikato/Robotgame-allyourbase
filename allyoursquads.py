@@ -7,7 +7,7 @@ class Team:
     ALL YOUR SQUADS ARE BELONG TO US!
 
     @type teams : list[Team]
-    @type targets : dict[Robot, Team]
+    @type targets : list[Robot]
     """
 
     teams = []
@@ -31,7 +31,7 @@ class Team:
         target = None
         for loc, enemy in game['robots'].iteritems():
             if not bot in Team.targets and enemy.player_id != bot.player_id:
-                dist = self._dist(enemy)
+                dist = self.dist(enemy)
                 if dist < min_dist:
                     min_dist = dist
                     target = enemy
@@ -45,14 +45,14 @@ class Team:
 
         return target.location
 
-    def _dist(self, enemy):
+    def dist(self, other):
         """Calculates the lowest distance between the enemy and one of the team members.
 
         @type enemy: int
         """
         min_dist = 1000
         for bot in self.members:
-            tmp_dist = rg.dist(enemy.location, bot.location)
+            tmp_dist = rg.dist(other.location, bot.location)
             if tmp_dist < min_dist:
                 min_dist = tmp_dist
         return min_dist
@@ -97,7 +97,7 @@ class Robot:
         best_team = None
         for team in Team.teams:
             if not team.full():
-                tmp_dist = team.get_closest_friend(self)
+                tmp_dist = team.dist(self)
                 if tmp_dist < min_dist:
                     min_dist = tmp_dist
                     best_team = team
