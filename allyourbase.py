@@ -1,30 +1,21 @@
 import rg
 
+
 class Robot:
 
-    def __init__(self):
-        self.history = []
-        self.backupThreshold = 50
-
     def act(self, game):
-        # check if we need to back up a little to save robot
-        if self.hp < self.backupThreshold and len(self.history) > 0:
-            back_location = rg.toward(self.location, self.history.pop())
-            if back_location != self.location:
-                return ['move', back_location]
-
         # find closest enemy robot
-        minDist = 1000
+        min_dist = 1000
         target = None
         for loc, bot in game['robots'].iteritems():
             if bot.player_id != self.player_id:
-                checkDist = rg.dist(loc, self.location)
-                if checkDist < minDist:
-                    minDist = checkDist
+                check_dist = rg.wdist(loc, self.location)
+                if check_dist < min_dist:
+                    min_dist = check_dist
                     target = loc
 
         # HOIST THE FLAG! ARM THE CANONS!
-        if minDist == 1:
+        if min_dist == 1:
             return ['attack', target]
 
         if target is None:
@@ -32,7 +23,6 @@ class Robot:
 
         # calculate target location
         newlocation = rg.toward(self.location, target)
-        self.history.append(newlocation)
 
         # move
         return ['move', newlocation]
