@@ -2,86 +2,131 @@ import rg
 
 heatmap = None
 
+i = 0
+
 class Heatmap:
 
     def __init__(self):
         self.turn = None
         self.map = {}
+        self.old_map = {}
+        self.enemy_positions = {}
 
-    def next(self, game, location):
-        c_map = self._map(game)
+    def is_enemy_position(self, loc):
+        return loc in self.enemy_positions
 
-        bx = location[0] - 1
-        by = location[1] - 1
+    def get_enemy(self, loc):
+        if self.is_enemy_position(loc):
+            return self.enemy_positions[loc]
 
-        max_heat = 0
-        next_step = None
-        for x in range(0, 2):
-            tmp_x = bx + x
-            if (tmp_x, by) in c_map and c_map[(tmp_x, by)] > max_heat:
-                max_heat = c_map[(tmp_x, by)]
-                next_step = (tmp_x, by)
-            if (tmp_x, by + 2) in c_map and c_map[(tmp_x, by + 2)] > max_heat:
-                max_heat = c_map[(tmp_x, by)]
-                next_step = (tmp_x, by + 2)
+    def next(self, game, cbot):
+        location = cbot.location
+        c_map = self._map(game, cbot)
 
-        for y in range(0, 2):
-            tmp_y = by + y
-            if (bx, tmp_y) in c_map and c_map[(bx, tmp_y)] > max_heat:
-                max_heat = c_map[(bx, tmp_y)]
-                next_step = (bx + 2, tmp_y)
-            if (bx + 2, tmp_y) in c_map and c_map[(bx + 2, tmp_y)] > max_heat:
-                max_heat = c_map[(bx + 2, tmp_y)]
-                next_step = (bx + 2, tmp_y)
+        next_step = (location[0] - 1, location[1])
+        if next_step in c_map:
+            min_steps = c_map[next_step]
+        else:
+            min_steps = 1000
+            next_step = rg.CENTER_POINT
 
-        return next_step
+        tmp_step = (location[0] + 1, location[1])
+        if tmp_step in c_map and c_map[tmp_step] < min_steps:
+            min_steps = c_map[tmp_step]
+            next_step = tmp_step
 
-    def _map(self, game):
+        tmp_step = (location[0], location[1] - 1)
+        if tmp_step in c_map and c_map[tmp_step] < min_steps:
+            min_steps = c_map[tmp_step]
+            next_step = tmp_step
+
+        tmp_step = (location[0], location[1] + 1)
+        if tmp_step in c_map and c_map[tmp_step] < min_steps:
+            min_steps = c_map[tmp_step]
+            next_step = tmp_step
+
+        last_dist = 50
+        if next_step in self.old_map:
+            last_dist = self.old_map[next_step]
+
+        return next_step, min_steps, last_dist
+
+    def _map(self, game, bot):
         if game['turn'] == self.turn:
             return self.map
 
+        self.old_map = self.map
         self.map = {}
-        for loc, enemy in game['robots'].iteritems():
-            self._add_enemy(enemy)
+        self.turn = game['turn']
+        self.enemy_positions = {}
+        for loc, other in game['robots'].iteritems():
+            if other.player_id != bot.player_id:
+                self._add_enemy(other)
+            else:
+                self._add_fiend(other)
 
         return self.map
 
-    def _add(self, position, heat):
-        if not position in self.map:
-            self.map[position] = 0
+    def _pretty_print(self, iteration):
+        f = open('map-turn' + iteration + ".txt", 'w')
+        mapout = ""
 
-        self.map[position] += heat
+        for i in range(0, rg.CENTER_POINT[0] * 2):
+            for j in range(0, rg.CENTER_POINT[1] * 2):
+                loc = (i, j)
+
+                warn = " "
+                if loc in self.enemy_positions:
+                    warn = "x"
+
+                if not loc in self.map:
+                    self.map[loc] = 1000
+
+                mapout += "%s[%s]=%s " % (repr(loc).rjust(8), warn, repr(self.map[loc]).ljust(5))
+            mapout += '\n'
+
+        f.write(mapout)
+        f.close()
+
+    def _add(self, position, wdist):
+        if position[0] < 0 or position[1] < 0:
+            return
+
+        loc_types = rg.loc_types(position)
+        if "invalid" in loc_types or "obstacle" in loc_types:
+            return
+
+        if not position in self.map or self.map[position] > wdist:
+            self.map[position] = wdist
 
     def _add_enemy(self, enemy):
         center = enemy.location
-        heat = enemy.hp
 
-        self._add(center, heat)
-
-        heat -= 10
+        self.enemy_positions[center] = enemy
+        self._add(center, 0)
 
         offset = 1
-        bx = center[0] - offset
-        by = center[1] - offset
-        while heat > 0:
-            for x in range(0, offset * 2):
-                loc_types = rg.loc_types((bx + x, by))
-                if not "invalid" in loc_types:
-                    self._add((bx + x, by), heat)
+        while offset < rg.CENTER_POINT[0]:
+            bx = center[0] - offset
+            by = center[1] - offset
+            radius = offset * 2
 
-                loc_types = rg.loc_types((bx + x, by + offset * 2))
-                if not "invalid" in loc_types:
-                    self._add((bx + x, by + offset * 2), heat)
-            for y in range(0, offset * 2):
-                loc_types = rg.loc_types((bx, by + y))
-                if not "invalid" in loc_types:
-                    self._add((bx, by + y), heat)
+            self._add((bx, by), rg.wdist(center, (bx, by)))
+            for x in range(1, radius + 1):
+                self._add((bx + x, by), rg.wdist(center, (bx + x, by)))
+                self._add((bx + x, by + (offset * 2)), rg.wdist(center, (bx + x, by + (offset * 2))))
 
-                loc_types = rg.loc_types((bx + offset * 2, by + y))
-                if not "invalid" in loc_types:
-                    self._add((bx + offset * 2, by + y), heat)
+            for y in range(1, radius + 1):
+                self._add((bx, by + y), rg.wdist(center, (bx, by + y)))
+                self._add((bx + (offset * 2), by + y), rg.wdist(center, (bx + (offset * 2), by + y)))
 
-            heat -= 10
+            offset += 1
+
+    def _add_fiend(self, bot):
+        self.map[bot.location] = 1000
+        for loc in rg.locs_around(bot.location):
+            if "spawn" in rg.loc_types(loc):
+                self.map[loc] = 500
 
 
 class Robot:
@@ -92,9 +137,36 @@ class Robot:
         if heatmap is None:
             heatmap = Heatmap()
 
-        loc = heatmap.next(game, self.location)
+        data = heatmap.next(game, self)
+        loc = data[0]
+        wdist = data[1]
+        old_wdist = data[2]
+
+        # something is coming get ready for collision
+        if wdist == 1 and old_wdist > wdist:
+            return ['guard']
 
         if loc is None:
-            loc = rg.CENTER_POINT
+            loc = rg.toward(self.location, rg.CENTER_POINT)
+
+        min_hp = 100
+        target = None
+        target_count = 0
+        for aloc in rg.locs_around(self.location):
+            if heatmap.is_enemy_position(aloc):
+                target_count += 1
+                c_target = heatmap.get_enemy(aloc)
+                if c_target.hp < min_hp:
+                    min_hp = c_target.hp
+                    target = c_target
+
+        if target_count > 1 and self.hp < 20:
+            return ['suicide']
+
+        if target_count == 1 and self.hp < 10:
+            return ['suicide']
+
+        if not target is None:
+            return ['attack', target.location]
 
         return ['move', loc]
