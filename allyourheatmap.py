@@ -2,7 +2,6 @@ import rg
 
 heatmap = None
 
-i = 0
 
 class Heatmap:
 
@@ -22,6 +21,8 @@ class Heatmap:
     def next(self, game, cbot):
         location = cbot.location
         c_map = self._map(game, cbot)
+
+        # self._pretty_print(repr(game['turn']))
 
         next_step = (location[0] - 1, location[1])
         if next_step in c_map:
